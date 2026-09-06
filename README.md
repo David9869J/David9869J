@@ -91,7 +91,7 @@ notificaciones push y contraseña de un solo uso en la primera entrada.
 
 ## Stack
 
-| | |
+| Capa | Herramientas |
 |---|---|
 | **Lenguaje** | TypeScript en modo estricto |
 | **Frontend** | Next.js (App Router, Server Components y Server Actions), React, Tailwind CSS, Framer Motion |
