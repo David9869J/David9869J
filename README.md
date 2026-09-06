@@ -1,7 +1,7 @@
 <h1 align="center">Jose David Alvarado Muñoz</h1>
 
 <p align="center">
-  <strong>Ingeniero de Sistemas</strong> · Desarrollo de software a medida<br>
+  <strong>Ingeniero de Sistemas</strong> · Software transaccional y financiero<br>
   <sub>La Libertad, Perú</sub>
 </p>
 
@@ -21,68 +21,87 @@ antes de escribir una función pienso en qué pasa cuando falla a la mitad, cuan
 usuarios la ejecutan a la vez, y cuando dentro de seis meses alguien tenga que entender
 por qué está escrita así.
 
-Mi trabajo actual es un **ERP inmobiliario completo**, en producción, que lleva la venta
-de terrenos de punta a punta: del primer contacto con el cliente hasta el comprobante
-electrónico aceptado por SUNAT.
+Mi trabajo se concentra en **cobranza, conciliación bancaria y facturación electrónica**:
+la parte del software donde un error no es un pixel mal puesto, sino un pago que se
+aplica dos veces o un comprobante que la SUNAT rechaza.
 
 <br>
 
-## En qué estoy trabajando
+## Conciliación bancaria
 
-**ERP para Inmobiliaria Rodval E.I.R.L.** — repositorio privado
+<p align="left">
+  <img src="https://img.shields.io/badge/BCP-EA5B0C?style=for-the-badge&logoColor=white" alt="BCP">
+  <img src="https://img.shields.io/badge/BBVA-004481?style=for-the-badge&logoColor=white" alt="BBVA">
+  <img src="https://img.shields.io/badge/Interbank-00A94F?style=for-the-badge&logoColor=white" alt="Interbank">
+  <img src="https://img.shields.io/badge/Scotiabank-EC111A?style=for-the-badge&logoColor=white" alt="Scotiabank">
+  <img src="https://img.shields.io/badge/Yape-742284?style=for-the-badge&logoColor=white" alt="Yape">
+  <img src="https://img.shields.io/badge/Plin-00BFA5?style=for-the-badge&logoColor=white" alt="Plin">
+</p>
 
-Un sistema en producción que cubre el ciclo completo de una venta inmobiliaria:
-catálogo de lotes, contratos con su cronograma de cuotas, cobranza, conciliación de
-vouchers bancarios y facturación electrónica.
+Sistemas que reciben el voucher de un depósito y lo convierten en un pago aplicado, sin
+que nadie teclee el monto a mano:
+
+- **Lectura automática del comprobante.** OCR sobre la foto del voucher para extraer
+  monto, banco, número de operación y cuenta de destino.
+- **Detección de depósitos a cuentas ajenas.** Si el dinero no llegó a una cuenta
+  oficial, el sistema lo marca antes de que alguien lo dé por cobrado.
+- **Aplicación en cascada.** Un pago que supera la cuota salda las siguientes en orden
+  de vencimiento, hasta agotarse — nada de excedentes perdidos en un campo de texto.
+- **Un voucher no se usa dos veces.** Huella SHA-256 del archivo, con restricción de
+  unicidad en la base: el mismo comprobante no puede aplicarse a dos deudas distintas.
+
+<br>
+
+## Facturación electrónica ante SUNAT
+
+Emisión de comprobantes electrónicos de punta a punta, sin intermediarios:
+
+| | |
+|---|---|
+| **Formato** | XML **UBL 2.1**, validado contra el catálogo oficial de códigos antes de enviar |
+| **Firma** | XML-DSig con certificado digital **PKCS#12**, con verificación de vigencia y de RUC |
+| **Envío** | Servicio SOAP de SUNAT, con lectura de la constancia de recepción (CDR) |
+| **Anulación** | Notas de crédito enlazadas al comprobante original |
+
+Cada rechazo de SUNAT consume un correlativo que no se recupera, así que la validación
+va **antes** del envío y no después del error.
+
+<br>
+
+## Integridad y concurrencia
 
 <table>
 <tr><td width="50%" valign="top">
 
-**Facturación electrónica SUNAT**
+**Auditoría encadenada**
 
-Emisión de boletas y notas de crédito con XML **UBL 2.1**, firmado digitalmente con
-certificado PKCS#12. Validación previa contra el catálogo oficial de códigos, porque
-cada rechazo de SUNAT consume un correlativo que no se recupera.
+Registro inmutable donde cada entrada incluye el hash **SHA-256** de la anterior.
+Alterar o borrar una fila rompe la cadena de todas las siguientes y queda a la vista.
+Ni siquiera la llave de servicio puede modificarlo.
 
 </td><td width="50%" valign="top">
 
-**Integridad financiera**
+**Bloqueo pesimista**
 
-Registro de auditoría **inmutable y encadenado con SHA-256**: cada entrada incluye el
-hash de la anterior, así que alterar o borrar una rompe la cadena de todas las
-siguientes y queda a la vista.
+`SELECT … FOR UPDATE NOWAIT` para que dos usuarios no puedan reservar el mismo activo
+a la vez. En un pico de tráfico eso no es teoría: es la misma cosa vendida dos veces.
 
 </td></tr>
 <tr><td width="50%" valign="top">
 
-**Concurrencia crítica**
+**Nada financiero se borra**
 
-Bloqueo pesimista (`SELECT … FOR UPDATE NOWAIT`) para que dos asesores no puedan
-reservar el mismo lote a la vez. En una feria inmobiliaria eso no es teoría: es una
-venta duplicada del mismo terreno.
+Los registros contables no admiten `DELETE`, ni desde la aplicación ni desde la llave
+de servicio. Se anulan con transacciones de compensación que dejan constancia de
+quién, cuándo y por qué.
 
 </td><td width="50%" valign="top">
 
 **Seguridad por capas**
 
-Row Level Security estricto en PostgreSQL, permisos configurables desde el panel,
-credenciales cifradas con AES-256-GCM y almacenamiento perimetral con URLs
+Row Level Security estricto en PostgreSQL, permisos configurables sin desplegar,
+credenciales cifradas con **AES-256-GCM** y almacenamiento perimetral con URLs
 prefirmadas de vida corta.
-
-</td></tr>
-<tr><td width="50%" valign="top">
-
-**Lectura automática de vouchers**
-
-OCR sobre la foto del comprobante bancario para extraer monto, banco y número de
-operación, con aviso cuando el depósito no fue a una cuenta oficial de la empresa.
-
-</td><td width="50%" valign="top">
-
-**Portal del cliente**
-
-PWA instalable donde el comprador consulta su cronograma y envía sus pagos, con
-notificaciones push y contraseña de un solo uso en la primera entrada.
 
 </td></tr>
 </table>
@@ -97,7 +116,7 @@ notificaciones push y contraseña de un solo uso en la primera entrada.
 | **Frontend** | Next.js (App Router, Server Components y Server Actions), React, Tailwind CSS, Framer Motion |
 | **Backend** | PostgreSQL con PL/pgSQL, Supabase, Row Level Security |
 | **Infraestructura** | Vercel, Cloudflare R2 (S3 API), almacenamiento con retención inmutable |
-| **Integraciones** | SUNAT (SOAP/UBL 2.1, firma XML-DSig), WhatsApp Cloud API, pasarelas de consulta por DNI |
+| **Integraciones** | SUNAT (SOAP · UBL 2.1 · XML-DSig), WhatsApp Cloud API, consulta por DNI, OCR |
 
 <br>
 
@@ -108,13 +127,8 @@ Lo que no se lee es por qué está escrita de esa forma y no de la evidente — 
 justo lo que alguien va a necesitar dentro de seis meses para no romperla.
 
 **La base de datos es la última línea de defensa.** Una validación en el formulario es
-una cortesía para el usuario. La que impide de verdad una venta duplicada o un pago
-aplicado dos veces es la restricción en PostgreSQL, porque esa no se puede saltar
-llamando a la API directamente.
-
-**Nada se borra si es financiero.** Un comprobante puede haber generado una boleta que
-ya existe ante SUNAT; borrar la fila no la retira de allí, solo deja el hecho sin
-explicación. Se anula, se compensa y queda registrado quién, cuándo y por qué.
+una cortesía para el usuario. La que impide de verdad un cobro duplicado es la
+restricción en PostgreSQL, porque esa no se puede saltar llamando a la API directamente.
 
 **Un error silencioso es peor que una caída.** Prefiero que algo falle fuerte y temprano
 a que devuelva un resultado incompleto que nadie note hasta el cierre de mes.
@@ -131,4 +145,4 @@ a que devuelva un resultado incompleto que nadie note hasta el cierre de mes.
 
 <br>
 
-<sub>La mayor parte de mi trabajo está en repositorios privados de clientes. Si necesitas ver código o quieres conversar sobre un proyecto, escríbeme.</sub>
+<sub>Trabajo bajo acuerdos de confidencialidad, así que el código vive en repositorios privados. Si necesitas ver ejemplos o conversar sobre un proyecto, escríbeme.</sub>
