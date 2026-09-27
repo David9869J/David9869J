@@ -20,9 +20,10 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 
 $config = "$env:ProgramData\ssh\sshd_config"
 
-Write-Host "==> Instalando servidor OpenSSH (puede tardar unos minutos)" -ForegroundColor Cyan
-$cap = Get-WindowsCapability -Online | Where-Object Name -like "OpenSSH.Server*"
+Write-Host "==> Instalando servidor OpenSSH" -ForegroundColor Cyan
+$cap = Get-WindowsCapability -Online -Name "OpenSSH.Server~~~~0.0.1.0"
 if ($cap.State -ne "Installed") {
+    Write-Host "    Descargando de Windows Update: puede tardar 5-15 minutos sin mostrar nada. No cierres la ventana."
     Add-WindowsCapability -Online -Name $cap.Name | Out-Null
 } else {
     Write-Host "    Ya estaba instalado."
